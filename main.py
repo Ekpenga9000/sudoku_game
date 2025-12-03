@@ -19,6 +19,8 @@ class SudokuGame:
         self.difficulty = "medium"
         self.mistakes = 0
         self.max_mistakes = 3
+        self.hints_used = 0
+        self.max_hints = 18  # Default for medium
         
         # UI Components
         self.title = ft.Text(
@@ -45,6 +47,12 @@ class SudokuGame:
             color=ft.Colors.RED_400
         )
         
+        self.hints_text = ft.Text(
+            f"Hints: {self.hints_used}/{self.max_hints}",
+            size=16,
+            color=ft.Colors.BLUE_400
+        )
+        
         self.new_game_btn = ft.ElevatedButton(
             "New Game",
             on_click=self.new_game,
@@ -60,7 +68,7 @@ class SudokuGame:
         )
         
         self.hint_btn = ft.ElevatedButton(
-            "Hint",
+            f"Hint ({self.max_hints})",
             on_click=self.give_hint,
             bgcolor=ft.Colors.ORANGE_400,
             color=ft.Colors.WHITE
@@ -74,13 +82,25 @@ class SudokuGame:
         )
         
         self.status_text = ft.Text(
-            "Welcome! Click 'New Game' to start.",
+            "🎮 Ready to play? Click 'New Game' to start your Sudoku adventure!",
             size=14,
-            text_align=ft.TextAlign.CENTER
+            text_align=ft.TextAlign.CENTER,
+            color=ft.Colors.BLUE_600
+        )
+        
+        # Instruction text for new game
+        self.instruction_text = ft.Text(
+            "👆 Select your difficulty level above, then click 'New Game' to begin!",
+            size=13,
+            text_align=ft.TextAlign.CENTER,
+            color=ft.Colors.GREY_600,
+            italic=True,
+            visible=True
         )
         
         self.setup_board()
         self.setup_page()
+        self.show_welcome_dialog()
     
     def setup_page(self):
         """Set up the page layout and styling."""
@@ -104,6 +124,7 @@ class SudokuGame:
                 ft.Text("Difficulty:", size=16),
                 self.difficulty_dropdown,
                 self.mistakes_text,
+                self.hints_text,
             ],
             alignment=ft.MainAxisAlignment.CENTER,
             spacing=20
@@ -127,6 +148,7 @@ class SudokuGame:
                 [
                     header,
                     controls,
+                    self.instruction_text,
                     self.create_board_ui(),
                     buttons,
                     self.status_text,
@@ -212,16 +234,81 @@ class SudokuGame:
             )
         )
     
+    def show_welcome_dialog(self):
+        """Show welcome dialog when the application starts."""
+        def close_dialog(e):
+            welcome_dialog.open = False
+            self.page.update()
+        
+        def start_new_game(e):
+            welcome_dialog.open = False
+            self.page.update()
+            self.new_game(e)
+        
+        welcome_dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Welcome to Sudoku!", size=24, weight=ft.FontWeight.BOLD),
+            content=ft.Column([
+                ft.Text("🧩 Ready to challenge your mind?", size=16, text_align=ft.TextAlign.CENTER),
+                ft.Text(""),
+                ft.Text("• Choose your difficulty level", size=14),
+                ft.Text("• Fill the 9×9 grid with numbers 1-9", size=14),
+                ft.Text("• Each row, column, and 3×3 box must contain all digits", size=14),
+                ft.Text("• You have 3 mistakes before game over", size=14),
+                ft.Text("• Hints available: Easy (30), Medium (18), Hard (10)", size=14),
+                ft.Text(""),
+                ft.Text("Good luck and have fun! 🎯", size=16, text_align=ft.TextAlign.CENTER, weight=ft.FontWeight.BOLD),
+            ], 
+            width=400,
+            height=250,
+            alignment=ft.MainAxisAlignment.CENTER
+            ),
+            actions=[
+                ft.TextButton("Maybe Later", on_click=close_dialog),
+                ft.ElevatedButton(
+                    "Start New Game!", 
+                    on_click=start_new_game,
+                    bgcolor=ft.Colors.GREEN_400,
+                    color=ft.Colors.WHITE,
+                    icon=ft.Icons.PLAY_ARROW
+                ),
+            ],
+            actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+        )
+        
+        self.page.dialog = welcome_dialog
+        welcome_dialog.open = True
+        self.page.update()
+    
+    def get_max_hints_for_difficulty(self, difficulty: str) -> int:
+        """Get maximum hints allowed for the given difficulty."""
+        hint_limits = {
+            "easy": 30,
+            "medium": 18,
+            "hard": 10
+        }
+        return hint_limits.get(difficulty, 18)
+    
     def difficulty_changed(self, e):
         """Handle difficulty change."""
         self.difficulty = e.control.value
-        self.status_text.value = f"Difficulty changed to {self.difficulty}. Click 'New Game' to apply."
+        self.max_hints = self.get_max_hints_for_difficulty(self.difficulty)
+        self.hints_text.value = f"Hints: {self.hints_used}/{self.max_hints}"
+        self.hint_btn.text = f"Hint ({self.max_hints - self.hints_used})"
+        # Make instruction text more prominent when difficulty changes
+        self.instruction_text.visible = True
+        self.instruction_text.value = f"✨ {self.difficulty.capitalize()} difficulty selected! Click 'New Game' to start playing!"
+        self.instruction_text.color = ft.Colors.BLUE_700
+        self.status_text.value = f"Difficulty changed to {self.difficulty}. Ready to challenge yourself?"
         self.page.update()
     
     def new_game(self, e):
         """Start a new game."""
         self.mistakes = 0
+        self.hints_used = 0
+        self.max_hints = self.get_max_hints_for_difficulty(self.difficulty)
         self.mistakes_text.value = f"Mistakes: {self.mistakes}/{self.max_mistakes}"
+        self.hints_text.value = f"Hints: {self.hints_used}/{self.max_hints}"
         
         # Generate new puzzle
         self.puzzle_board, self.solution_board = self.solver.generate_puzzle(self.difficulty)
@@ -229,6 +316,13 @@ class SudokuGame:
         
         # Update UI
         self.update_board_display()
+        self.instruction_text.visible = False  # Hide instruction text once game starts
+        
+        # Reset hint button
+        self.hint_btn.disabled = False
+        self.hint_btn.text = f"Hint ({self.max_hints})"
+        self.hint_btn.bgcolor = ft.Colors.ORANGE_400
+        
         self.status_text.value = f"New {self.difficulty} game started! Good luck!"
         self.page.update()
     
@@ -305,6 +399,13 @@ class SudokuGame:
     
     def give_hint(self, e):
         """Provide a hint by filling one empty cell."""
+        # Check if hints are exhausted
+        if self.hints_used >= self.max_hints:
+            self.status_text.value = f"No more hints available! You've used all {self.max_hints} hints for {self.difficulty} difficulty."
+            self.status_text.color = ft.Colors.RED
+            self.page.update()
+            return
+        
         empty_cells = [(i, j) for i in range(9) for j in range(9) 
                       if self.puzzle_board[i][j] == 0 and self.initial_board[i][j] == 0]
         
@@ -323,7 +424,22 @@ class SudokuGame:
         self.board_controls[row][col].bgcolor = ft.Colors.YELLOW_100
         self.board_controls[row][col].read_only = True
         
-        self.status_text.value = f"Hint: Added {correct_value} at row {row+1}, column {col+1}"
+        # Update hint counter
+        self.hints_used += 1
+        self.hints_text.value = f"Hints: {self.hints_used}/{self.max_hints}"
+        
+        remaining_hints = self.max_hints - self.hints_used
+        self.status_text.value = f"Hint: Added {correct_value} at row {row+1}, column {col+1}. {remaining_hints} hints left."
+        self.status_text.color = ft.Colors.BLUE_600
+        
+        # Update hint button if no hints left
+        if self.hints_used >= self.max_hints:
+            self.hint_btn.disabled = True
+            self.hint_btn.text = "No Hints Left"
+            self.hint_btn.bgcolor = ft.Colors.GREY_400
+        else:
+            self.hint_btn.text = f"Hint ({remaining_hints})"
+        
         self.page.update()
     
     def solve_puzzle(self, e):
@@ -339,6 +455,11 @@ class SudokuGame:
         for i in range(9):
             for j in range(9):
                 self.board_controls[i][j].read_only = True
+        
+        # Show instruction text again to encourage starting a new game
+        self.instruction_text.visible = True
+        self.instruction_text.value = "🎯 Ready for another challenge? Select difficulty and click 'New Game'!"
+        self.instruction_text.color = ft.Colors.PURPLE_600
 
 
 def main(page: ft.Page):
