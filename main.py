@@ -21,6 +21,7 @@ class SudokuGame:
         self.max_mistakes = 3
         self.hints_used = 0
         self.max_hints = 18  # Default for medium
+        self.game_active = False  # Track if game is currently active
         
         # UI Components
         self.title = ft.Text(
@@ -98,6 +99,16 @@ class SudokuGame:
             visible=True
         )
         
+        # Difficulty lock indicator
+        self.difficulty_lock_text = ft.Text(
+            "🔒 Difficulty locked during game",
+            size=11,
+            text_align=ft.TextAlign.CENTER,
+            color=ft.Colors.GREY_500,
+            italic=True,
+            visible=False
+        )
+        
         self.setup_board()
         self.setup_page()
         self.show_welcome_dialog()
@@ -130,6 +141,17 @@ class SudokuGame:
             spacing=20
         )
         
+        # Control panel with lock indicator
+        controls_with_lock = ft.Column(
+            [
+                controls,
+                self.difficulty_lock_text,
+            ],
+            alignment=ft.MainAxisAlignment.CENTER,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            spacing=5
+        )
+        
         # Buttons
         buttons = ft.Row(
             [
@@ -147,7 +169,7 @@ class SudokuGame:
             ft.Column(
                 [
                     header,
-                    controls,
+                    controls_with_lock,
                     self.instruction_text,
                     self.create_board_ui(),
                     buttons,
@@ -291,6 +313,7 @@ class SudokuGame:
     
     def difficulty_changed(self, e):
         """Handle difficulty change."""
+        # This should only be called when game is not active (dropdown is enabled)
         self.difficulty = e.control.value
         self.max_hints = self.get_max_hints_for_difficulty(self.difficulty)
         self.hints_text.value = f"Hints: {self.hints_used}/{self.max_hints}"
@@ -300,6 +323,7 @@ class SudokuGame:
         self.instruction_text.value = f"✨ {self.difficulty.capitalize()} difficulty selected! Click 'New Game' to start playing!"
         self.instruction_text.color = ft.Colors.BLUE_700
         self.status_text.value = f"Difficulty changed to {self.difficulty}. Ready to challenge yourself?"
+        self.status_text.color = ft.Colors.BLACK
         self.page.update()
     
     def new_game(self, e):
@@ -318,12 +342,20 @@ class SudokuGame:
         self.update_board_display()
         self.instruction_text.visible = False  # Hide instruction text once game starts
         
+        # Set game as active
+        self.game_active = True
+        self.difficulty_dropdown.disabled = True  # Physically disable the dropdown
+        self.difficulty_dropdown.bgcolor = ft.Colors.GREY_200  # Visual indicator that it's locked
+        self.difficulty_dropdown.color = ft.Colors.GREY_500  # Dim text color when locked
+        self.difficulty_lock_text.visible = True  # Show lock indicator
+        
         # Reset hint button
         self.hint_btn.disabled = False
         self.hint_btn.text = f"Hint ({self.max_hints})"
         self.hint_btn.bgcolor = ft.Colors.ORANGE_400
         
         self.status_text.value = f"New {self.difficulty} game started! Good luck!"
+        self.status_text.color = ft.Colors.BLACK
         self.page.update()
     
     def update_board_display(self):
@@ -455,6 +487,13 @@ class SudokuGame:
         for i in range(9):
             for j in range(9):
                 self.board_controls[i][j].read_only = True
+        
+        # Mark game as inactive so difficulty can be changed again
+        self.game_active = False
+        self.difficulty_dropdown.disabled = False  # Re-enable the dropdown
+        self.difficulty_dropdown.bgcolor = ft.Colors.WHITE  # Reset visual indicator
+        self.difficulty_dropdown.color = ft.Colors.BLACK  # Reset text color
+        self.difficulty_lock_text.visible = False  # Hide lock indicator
         
         # Show instruction text again to encourage starting a new game
         self.instruction_text.visible = True
